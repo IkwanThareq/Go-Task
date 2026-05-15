@@ -1,4 +1,18 @@
+# environment variables — never commit
 .env
+
+# compiled binaries
 *.exe
 *.test
+gotask-api
+main
+
+# dependencies
 vendor/
+
+# IDE
+.idea
+
+# OS
+.DS_Store
+Thumbs.db

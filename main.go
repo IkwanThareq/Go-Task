@@ -7,7 +7,9 @@ import (
 	"gotask-api/models"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -31,48 +33,12 @@ func main() {
 	// create gin router
 	router := gin.Default()
 
-	//// define route
-	//// GET /ping -> runs the function below
-	//router.GET("/ping", func(c *gin.Context) {
-	//	c.JSON(http.StatusOK, gin.H{
-	//		"message": "pong",
-	//	})
-	//})
-	//
-	//// health check
-	//router.GET("/health", func(c *gin.Context) {
-	//	datatransfers.SuccessRes(c, http.StatusOK, constants.SUCCESS, gin.H{
-	//		"status":  "ok",
-	//		"service": "gotask-api",
-	//	})
-	//})
-	//
-	//router.NoRoute(func(c *gin.Context) {
-	//	datatransfers.ErrorRes(c, http.StatusNotFound, constants.NOT_FOUND, "route not found")
-	//})
-	//
-	//// creating Route Group for the API now is using v1
-	//v1 := router.Group("/api/v1"){
-	//	tasks := v1.Group("/tasks"){
-	//		tasks.GET("", getAllTasks)
-	//		tasks.POST("", createTasks)
-	//		tasks.GET("/:id", getTaskByID)
-	//		tasks.PUT("/:id", updateTask)
-	//		tasks.DELETE("/:id", deleteTask)
-	//	}
-	//}
-
-	// above is for tranining purpose
-	// and this below is for the course training
-	// in memory storage
-
 	v1 := router.Group("/api/v1")
 	{
-		// health check
 		v1.GET("/health", func(c *gin.Context) {
 			datatransfers.SuccessRes(c, http.StatusOK, constants.SUCCESS, gin.H{
-				"status": "ok",
-				"server": "gotask-api",
+				"status":  "ok",
+				"service": "gotask-api",
 			})
 		})
 
@@ -85,61 +51,96 @@ func main() {
 	}
 
 	router.NoRoute(func(c *gin.Context) {
-		datatransfers.ErrorRes(c, http.StatusNotFound, constants.NOT_FOUND, "route not found")
+		datatransfers.ErrorRes(c, http.StatusNotFound,
+			constants.NOT_FOUND, "route not found")
 	})
 
-	router.Run(":8080")
+	port := os.Getenv("APP_PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	router.Run(":" + port)
 }
 
 // all the function for the endpoint
 
 func handleGetAllTasks(c *gin.Context) {
+	var tasks []models.Task
+	result := config.DB.Find(&tasks)
+	if result.Error != nil {
+		datatransfers.ErrorRes(c, http.StatusInternalServerError,
+			constants.INTERNAL_ERROR, "failed to fetch tasks")
+		return
+	}
 	datatransfers.SuccessRes(c, http.StatusOK, constants.SUCCESS, tasks)
 }
 
 func handleCreateTask(c *gin.Context) {
 	var body struct {
-		Title    string `json:"title"`
-		Priority int    `json:"priority"`
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		Priority    int    `json:"priority"`
 	}
 
 	if err := c.ShouldBindJSON(&body); err != nil {
-		datatransfers.ErrorRes(c, http.StatusBadRequest, constants.BAD_REQUEST, "invalid request body")
+		datatransfers.ErrorRes(c, http.StatusBadRequest,
+			constants.BAD_REQUEST, "invalid request body")
 		return
 	}
 
 	if body.Title == "" {
-		datatransfers.ErrorRes(c, http.StatusBadRequest, constants.BAD_REQUEST, "title is required")
+		datatransfers.ErrorRes(c, http.StatusBadRequest,
+			constants.BAD_REQUEST, "title cannot be empty")
 		return
 	}
 
-	// start logic fot create task
-	lastID++
-	newTask := gin.H{
-		"id":       lastID,
-		"title":    body.Title,
-		"priority": body.Priority,
-		"status":   constants.StatusPending,
+	// adding description as mandatory
+	if strings.TrimSpace(body.Description) == "" {
+		datatransfers.ErrorRes(c, http.StatusBadRequest,
+			constants.BAD_REQUEST, "description cannot be empty")
+		return
 	}
-	tasks = append(tasks, newTask)
-	datatransfers.SuccessRes(c, http.StatusCreated, constants.SUCCESS, newTask)
+
+	if body.Priority < 1 || body.Priority > 3 {
+		datatransfers.ErrorRes(c, http.StatusBadRequest,
+			constants.BAD_REQUEST, "priority must be between 1 and 3")
+		return
+	}
+
+	task := models.Task{
+		Title:       body.Title,
+		Description: body.Description,
+		Priority:    body.Priority,
+		Status:      constants.StatusPending,
+	}
+
+	result := config.DB.Create(&task)
+	if result.Error != nil {
+		datatransfers.ErrorRes(c, http.StatusInternalServerError,
+			constants.INTERNAL_ERROR, "failed to create task")
+		return
+	}
+
+	datatransfers.SuccessRes(c, http.StatusCreated, constants.SUCCESS, task)
 }
 
 func handleGetTaskByID(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		datatransfers.ErrorRes(c, http.StatusBadRequest, constants.BAD_REQUEST, "invalid task id")
+		datatransfers.ErrorRes(c, http.StatusBadRequest,
+			constants.BAD_REQUEST, "invalid task id")
 		return
 	}
 
-	for _, task := range tasks {
-		if task["id"] == id {
-			datatransfers.SuccessRes(c, http.StatusOK, constants.SUCCESS, task)
-			return
-		}
+	var task models.Task
+	result := config.DB.First(&task, id)
+	if result.Error != nil {
+		datatransfers.ErrorRes(c, http.StatusNotFound,
+			constants.NOT_FOUND, "task not found")
+		return
 	}
 
-	datatransfers.ErrorRes(c, http.StatusNotFound, constants.NOT_FOUND, "task not found")
-
+	datatransfers.SuccessRes(c, http.StatusOK, constants.SUCCESS, task)
 }
