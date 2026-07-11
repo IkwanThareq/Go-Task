@@ -7,6 +7,7 @@ import (
 	"gotask-api/datatransfers"
 	"gotask-api/models"
 	"gotask-api/repositories"
+	"gotask-api/utils"
 )
 
 var (
@@ -39,11 +40,17 @@ func (d *userDomain) Register(req datatransfers.RegisterRequest) (*models.User, 
 	}
 
 	// create user — password stored as plain text FOR NOW
-	// Session 13 adds bcrypt hashing right here
+	// Hashed password
+
+	hashed, err := utils.HashPassword(req.Password)
+	if err != nil {
+		return nil, err
+	}
+
 	user := &models.User{
 		Name:     req.Name,
 		Email:    req.Email,
-		Password: req.Password, // ⚠️ plain text — temporary!
+		Password: hashed,
 	}
 
 	return d.repo.Create(user)
