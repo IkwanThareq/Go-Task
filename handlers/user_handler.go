@@ -38,3 +38,23 @@ func (h *UserHandler) Register(c *gin.Context) {
 
 	datatransfers.SuccessRes(c, http.StatusCreated, constants.SUCCESS, user)
 }
+
+// handler for login
+func (h *UserHandler) Login(c *gin.Context) {
+	var req datatransfers.LoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		datatransfers.ErrorRes(c, http.StatusUnauthorized, "INVALID_CREDENTIALS", err.Error())
+		return
+	}
+	resp, err := h.domain.Login(req)
+	if err != nil {
+		if errors.Is(err, domains.ErrInvalidCredentials) {
+			datatransfers.ErrorRes(c, http.StatusUnauthorized, "INVALID_CREDENTIALS", err.Error())
+			return
+		}
+		datatransfers.ErrorRes(c, http.StatusInternalServerError, constants.INTERNAL_ERROR, err.Error())
+		return
+	}
+
+	datatransfers.SuccessRes(c, http.StatusOK, constants.SUCCESS, resp)
+}

@@ -18,6 +18,7 @@ var (
 
 type UserDomain interface {
 	Register(req datatransfers.RegisterRequest) (*models.User, error)
+	Login(req datatransfers.LoginRequest) (*datatransfers.LoginResponse, error)
 }
 
 type userDomain struct {
@@ -54,4 +55,34 @@ func (d *userDomain) Register(req datatransfers.RegisterRequest) (*models.User, 
 	}
 
 	return d.repo.Create(user)
+}
+
+func (d *userDomain) Login(req datatransfers.LoginRequest) (*datatransfers.LoginResponse, error) {
+	// normalize email
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+
+	// find user by email
+	user, err := d.repo.FindByEmail(req.Email)
+	if err != nil {
+		return nil, ErrInvalidCredentials
+	}
+
+	// check password
+	if err := utils.CheckPassword(user.Password, req.Password); err != nil {
+		return nil, ErrInvalidCredentials
+	}
+
+	// generate jwt
+	token, err := utils.GenerateToken(user.ID, user.Email)
+	if err != nil {
+		return nil, err
+	}
+
+	// build response
+	resp := &datatransfers.LoginResponse{Token: token}
+	resp.User.ID = user.ID
+	resp.User.Name = user.Name
+	resp.User.Email = user.Email
+
+	return resp, nil
 }
