@@ -57,11 +57,11 @@ func main() {
 			tasks.PUT("/:id", taskHandler.HandleUpdateTask)
 			tasks.DELETE("/:id", taskHandler.HandleDeleteTask)
 		}
-		// adding login endpoint
+
 		auth := v1.Group("/auth")
 		{
-			auth.POST("/register", userHandler.Register)
 			auth.POST("/login", userHandler.Login)
+			auth.POST("/register", userHandler.Register)
 		}
 	}
 
