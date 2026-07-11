@@ -43,7 +43,8 @@ jobs:
           script: |
             cd /home/gotask-api
 
-            git pull origin main
+            git fetch origin
+            git reset --hard origin/main
 
             docker compose down
             docker compose up -d --build
