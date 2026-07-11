@@ -13,6 +13,8 @@ services:
       DB_NAME: ${DB_NAME}
       DB_PORT: ${DB_PORT}
       APP_PORT: 8080
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS}
     networks:
       - noteapp_network
 
