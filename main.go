@@ -25,12 +25,17 @@ func main() {
 
 	// connect DB
 	config.ConnectDatabase()
-	config.DB.AutoMigrate(&models.Task{})
+	config.DB.AutoMigrate(&models.Task{}, &models.User{})
 
 	// wire layers together — dependency injection
 	taskRepo := repositories.NewTaskRepository(config.DB)
 	taskDomain := domains.NewTaskDomain(taskRepo)
 	taskHandler := handlers.NewTaskHandler(taskDomain)
+
+	// user layer
+	userRepo := repositories.NewUserRepository(config.DB)
+	userDomain := domains.NewUserDomain(userRepo)
+	userHandler := handlers.NewUserHandler(userDomain)
 
 	// router
 	router := gin.Default()
@@ -51,6 +56,11 @@ func main() {
 			tasks.GET("/:id", taskHandler.HandleGetTaskByID)
 			tasks.PUT("/:id", taskHandler.HandleUpdateTask)
 			tasks.DELETE("/:id", taskHandler.HandleDeleteTask)
+		}
+
+		auth := v1.Group("/auth")
+		{
+			auth.POST("/register", userHandler.Register)
 		}
 	}
 
