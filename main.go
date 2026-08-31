@@ -1,6 +1,7 @@
 package main
 
 import (
+	"gotask-api/middlewares"
 	"log"
 	"net/http"
 	"os"
@@ -46,6 +47,17 @@ func main() {
 			datatransfers.SuccessRes(c, http.StatusOK, constants.SUCCESS, gin.H{
 				"status":  "ok",
 				"service": "gotask-api",
+			})
+		})
+
+		// testing middleware
+		v1.GET("/me", middlewares.AuthMiddleware(), func(c *gin.Context) {
+			userID := c.MustGet("user_id")
+			email := c.MustGet("email")
+
+			datatransfers.SuccessRes(c, http.StatusOK, constants.SUCCESS, gin.H{
+				"user_id": userID,
+				"email":   email,
 			})
 		})
 
