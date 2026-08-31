@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/gin-GoTask.iml" filepath="$PROJECT_DIR$/.idea/gin-GoTask.iml" />
+      <module fileurl="file://$USER_HOME$/frontend-website/portofolio-web3/.idea/portofolio-web3.iml" filepath="$USER_HOME$/frontend-website/portofolio-web3/.idea/portofolio-web3.iml" />
     </modules>
   </component>
 </project>
