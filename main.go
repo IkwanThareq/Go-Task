@@ -50,18 +50,8 @@ func main() {
 			})
 		})
 
-		// testing middleware
-		v1.GET("/me", middlewares.AuthMiddleware(), func(c *gin.Context) {
-			userID := c.MustGet("user_id")
-			email := c.MustGet("email")
-
-			datatransfers.SuccessRes(c, http.StatusOK, constants.SUCCESS, gin.H{
-				"user_id": userID,
-				"email":   email,
-			})
-		})
-
 		tasks := v1.Group("/tasks")
+		tasks.Use(middlewares.AuthMiddleware())
 		{
 			tasks.GET("", taskHandler.HandleGetAllTasks)
 			tasks.POST("", taskHandler.HandleCreateTask)
