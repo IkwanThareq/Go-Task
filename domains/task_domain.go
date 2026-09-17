@@ -11,15 +11,16 @@ import (
 var (
 	ErrTaskNotFound    = errors.New("task not found")
 	ErrTaskAlreadyDone = errors.New("task already complete")
+	ErrNotTaskOwner    = errors.New("you do not own this task")
 )
 
 // interface
 type TaskDomain interface {
-	GetAllTasks() ([]models.Task, error)
-	GetTaskById(id uint) (*models.Task, error)
-	CreateTask(title, description string, priority int) (*models.Task, error)
-	UpdateTask(id uint, title, description string, priority int, status string) (*models.Task, error)
-	DeleteTask(id uint) error
+	CreateTask(userID uint, title string, description string, priority int) (*models.Task, error)
+	GetAllTasks(userID uint) ([]models.Task, error)
+	GetTaskById(userID uint, id uint) (*models.Task, error)
+	UpdateTask(userID uint, id uint, title string, description string, priority int, status string) (*models.Task, error)
+	DeleteTask(userID uint, id uint) error
 }
 
 // implementation from the interface
@@ -33,19 +34,23 @@ func NewTaskDomain(repo repositories.TaskRepository) TaskDomain {
 	return &taskDomain{repo: repo}
 }
 
-func (t *taskDomain) GetAllTasks() ([]models.Task, error) {
-	return t.repo.FindAll()
+func (t *taskDomain) GetAllTasks(userID uint) ([]models.Task, error) {
+	return t.repo.FindAllByUserID(userID)
 }
 
-func (t *taskDomain) GetTaskById(id uint) (*models.Task, error) {
+func (t *taskDomain) GetTaskById(userID uint, id uint) (*models.Task, error) {
 	task, err := t.repo.FindByID(id)
 	if err != nil {
 		return nil, ErrTaskNotFound
 	}
+
+	if task.UserID != userID {
+		return nil, ErrNotTaskOwner
+	}
 	return task, nil
 }
 
-func (t *taskDomain) CreateTask(title, description string, priority int) (*models.Task, error) {
+func (t *taskDomain) CreateTask(userID uint, title, description string, priority int) (*models.Task, error) {
 	// mulai aturan bisnis, validasi ada disini bukan di handler
 	if strings.TrimSpace(title) == "" {
 		return nil, errors.New("title cannot be blank")
@@ -58,6 +63,7 @@ func (t *taskDomain) CreateTask(title, description string, priority int) (*model
 	}
 
 	task := &models.Task{
+		UserID:      userID,
 		Title:       title,
 		Description: description,
 		Priority:    priority,
@@ -67,11 +73,11 @@ func (t *taskDomain) CreateTask(title, description string, priority int) (*model
 	return t.repo.Create(task)
 }
 
-func (d *taskDomain) UpdateTask(id uint, title, description string, priority int, status string) (*models.Task, error) {
+func (d *taskDomain) UpdateTask(userID uint, id uint, title, description string, priority int, status string) (*models.Task, error) {
 	// check task exists first
-	task, err := d.repo.FindByID(id)
+	task, err := d.GetTaskById(userID, id)
 	if err != nil {
-		return nil, ErrTaskNotFound
+		return nil, err
 	}
 
 	// validate — only update fields that are provided
@@ -96,17 +102,31 @@ func (d *taskDomain) UpdateTask(id uint, title, description string, priority int
 	}
 
 	// apply updates
-	task.Title = title
-	task.Description = description
-	task.Priority = priority
-	task.Status = status
+	//task.Title = title
+	//task.Description = description
+	//task.Priority = priority
+	//task.Status = status
+
+	// update fields
+	if title != "" {
+		task.Title = title
+	}
+	if description != "" {
+		task.Description = description
+	}
+	if priority != 0 {
+		task.Priority = priority
+	}
+	if status != "" {
+		task.Status = status
+	}
 
 	return d.repo.Update(task)
 }
 
-func (t *taskDomain) DeleteTask(id uint) error {
+func (t *taskDomain) DeleteTask(userID uint, id uint) error {
 	// check exist atau tidak
-	_, err := t.repo.FindByID(id)
+	_, err := t.GetTaskById(userID, id)
 	if err != nil {
 		return ErrTaskNotFound
 	}
