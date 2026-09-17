@@ -11,6 +11,7 @@ import (
 type TaskRepository interface {
 	FindAll() ([]models.Task, error)
 	FindByID(id uint) (*models.Task, error)
+	FindAllByUserID(userID uint) ([]models.Task, error)
 	Create(task *models.Task) (*models.Task, error)
 	Update(task *models.Task) (*models.Task, error)
 	Delete(id uint) error
@@ -39,6 +40,15 @@ func (r *taskRepository) FindByID(id uint) (*models.Task, error) {
 		return nil, result.Error
 	}
 	return &task, nil
+}
+
+func (r *taskRepository) FindAllByUserID(userID uint) ([]models.Task, error) {
+	var tasks []models.Task
+	result := r.db.Where("user_id = ?", userID).Find(&tasks)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return tasks, nil
 }
 
 func (r *taskRepository) Create(task *models.Task) (*models.Task, error) {

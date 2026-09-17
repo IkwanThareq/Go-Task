@@ -21,8 +21,13 @@ func NewTaskHandler(domain domains.TaskDomain) *TaskHandler {
 	return &TaskHandler{domain: domain}
 }
 
+func getUserID(c *gin.Context) uint {
+	return c.MustGet("user_id").(uint)
+}
+
 func (h *TaskHandler) HandleGetAllTasks(c *gin.Context) {
-	tasks, err := h.domain.GetAllTasks()
+	userID := getUserID(c)
+	tasks, err := h.domain.GetAllTasks(userID)
 	if err != nil {
 		datatransfers.ErrorRes(c, http.StatusInternalServerError, constants.INTERNAL_ERROR)
 		return
@@ -31,6 +36,8 @@ func (h *TaskHandler) HandleGetAllTasks(c *gin.Context) {
 }
 
 func (h *TaskHandler) HandleGetTaskByID(c *gin.Context) {
+	userID := getUserID(c)
+
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -38,15 +45,17 @@ func (h *TaskHandler) HandleGetTaskByID(c *gin.Context) {
 		return
 	}
 
-	task, err := h.domain.GetTaskById(uint(id))
+	task, err := h.domain.GetTaskById(userID, uint(id))
 	if err != nil {
 		if errors.Is(err, domains.ErrTaskNotFound) {
-			datatransfers.ErrorRes(c, http.StatusNotFound,
-				constants.NOT_FOUND, "task not found")
+			datatransfers.ErrorRes(c, http.StatusNotFound, constants.NOT_FOUND, "task not found")
 			return
 		}
-		datatransfers.ErrorRes(c, http.StatusInternalServerError,
-			constants.INTERNAL_ERROR, "failed to fetch task")
+		if errors.Is(err, domains.ErrNotTaskOwner) {
+			datatransfers.ErrorRes(c, http.StatusForbidden, "FORBIDDEN", "you do not own this task")
+			return
+		}
+		datatransfers.ErrorRes(c, http.StatusInternalServerError, constants.INTERNAL_ERROR, "failed to fetch task")
 		return
 	}
 
@@ -54,6 +63,8 @@ func (h *TaskHandler) HandleGetTaskByID(c *gin.Context) {
 }
 
 func (h *TaskHandler) HandleCreateTask(c *gin.Context) {
+	userID := getUserID(c)
+
 	var body struct {
 		Title       string `json:"title"`
 		Description string `json:"description"`
@@ -66,7 +77,7 @@ func (h *TaskHandler) HandleCreateTask(c *gin.Context) {
 		return
 	}
 
-	task, err := h.domain.CreateTask(body.Title, body.Description, body.Priority)
+	task, err := h.domain.CreateTask(userID, body.Title, body.Description, body.Priority)
 	if err != nil {
 		datatransfers.ErrorRes(c, http.StatusBadRequest,
 			constants.BAD_REQUEST, err.Error())
@@ -77,6 +88,8 @@ func (h *TaskHandler) HandleCreateTask(c *gin.Context) {
 }
 
 func (h *TaskHandler) HandleUpdateTask(c *gin.Context) {
+	userID := getUserID(c)
+
 	// parse ID from URL
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
@@ -102,6 +115,7 @@ func (h *TaskHandler) HandleUpdateTask(c *gin.Context) {
 
 	// call domain
 	task, err := h.domain.UpdateTask(
+		userID,
 		uint(id),
 		body.Title,
 		body.Description,
@@ -123,13 +137,15 @@ func (h *TaskHandler) HandleUpdateTask(c *gin.Context) {
 }
 
 func (h *TaskHandler) HandleDeleteTask(c *gin.Context) {
+	userID := getUserID(c)
+
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		datatransfers.ErrorRes(c, http.StatusBadRequest, constants.BAD_REQUEST, "invalid task id")
 	}
 
-	err = h.domain.DeleteTask(uint(id))
+	err = h.domain.DeleteTask(userID, uint(id))
 	if err != nil {
 		if errors.Is(err, domains.ErrTaskNotFound) {
 			datatransfers.ErrorRes(c, http.StatusNotFound, constants.NOT_FOUND, "task not found")

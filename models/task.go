@@ -8,6 +8,7 @@ type Task struct {
 	Description string    `json:"description" gorm:"not null"`
 	Priority    int       `json:"priority" gorm:"default:1"`
 	Status      string    `json:"status" gorm:"default:'pending'"`
+	UserID      uint      `json:"user_id" gorm:"not null:index"`
 	CreatedAt   time.Time `json:"createdAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
 }
