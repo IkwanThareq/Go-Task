@@ -26,7 +26,10 @@ func main() {
 
 	// connect DB
 	config.ConnectDatabase()
-	config.DB.AutoMigrate(&models.Task{}, &models.User{})
+	err := config.DB.AutoMigrate(&models.Task{}, &models.User{})
+	if err != nil {
+		return
+	}
 
 	// wire layers together — dependency injection
 	taskRepo := repositories.NewTaskRepository(config.DB)
