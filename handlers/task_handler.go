@@ -2,11 +2,12 @@ package handlers
 
 import (
 	"errors"
+	"net/http"
+	"strconv"
+
 	"gotask-api/constants"
 	"gotask-api/datatransfers"
 	"gotask-api/domains"
-	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -27,12 +28,21 @@ func getUserID(c *gin.Context) uint {
 
 func (h *TaskHandler) HandleGetAllTasks(c *gin.Context) {
 	userID := getUserID(c)
-	tasks, err := h.domain.GetAllTasks(userID)
+
+	// bind the query parameters from url
+	var params datatransfers.TaskQueryParams
+
+	if err := c.ShouldBindQuery(&params); err != nil {
+		datatransfers.ErrorRes(c, http.StatusBadRequest, constants.BAD_REQUEST, "Invalid query parameters")
+		return
+	}
+
+	result, err := h.domain.GetAllTasks(userID, params)
 	if err != nil {
 		datatransfers.ErrorRes(c, http.StatusInternalServerError, constants.INTERNAL_ERROR)
 		return
 	}
-	datatransfers.SuccessRes(c, http.StatusOK, constants.SUCCESS, tasks)
+	datatransfers.SuccessRes(c, http.StatusOK, constants.SUCCESS, result)
 }
 
 func (h *TaskHandler) HandleGetTaskByID(c *gin.Context) {
@@ -155,5 +165,4 @@ func (h *TaskHandler) HandleDeleteTask(c *gin.Context) {
 		return
 	}
 	datatransfers.SuccessRes(c, http.StatusOK, constants.SUCCESS, gin.H{"message": "task deleted successfully"})
-
 }

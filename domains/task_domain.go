@@ -2,9 +2,11 @@ package domains
 
 import (
 	"errors"
+	"strings"
+
+	"gotask-api/datatransfers"
 	"gotask-api/models"
 	"gotask-api/repositories"
-	"strings"
 )
 
 // buat sentinel error
@@ -17,7 +19,7 @@ var (
 // interface
 type TaskDomain interface {
 	CreateTask(userID uint, title string, description string, priority int) (*models.Task, error)
-	GetAllTasks(userID uint) ([]models.Task, error)
+	GetAllTasks(userID uint, params datatransfers.TaskQueryParams) (*datatransfers.PaginatedResponse, error)
 	GetTaskById(userID uint, id uint) (*models.Task, error)
 	UpdateTask(userID uint, id uint, title string, description string, priority int, status string) (*models.Task, error)
 	DeleteTask(userID uint, id uint) error
@@ -34,8 +36,41 @@ func NewTaskDomain(repo repositories.TaskRepository) TaskDomain {
 	return &taskDomain{repo: repo}
 }
 
-func (t *taskDomain) GetAllTasks(userID uint) ([]models.Task, error) {
-	return t.repo.FindAllByUserID(userID)
+func (t *taskDomain) GetAllTasks(userID uint, params datatransfers.TaskQueryParams) (*datatransfers.PaginatedResponse, error) {
+	// set defaults
+	if params.Page < 1 {
+		params.Page = 1
+	}
+	if params.Limit < 1 || params.Limit > 100 {
+		params.Limit = 10
+	}
+
+	offset := (params.Page - 1) * params.Limit
+
+	tasks, totalItems, err := t.repo.FindAllByUserID(
+		userID,
+		params.Status,
+		params.Priority,
+		params.Limit,
+		offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// calculate total pages
+	totalPages := int(totalItems) / params.Limit
+	if int(totalItems)%params.Limit != 0 {
+		totalPages++
+	}
+
+	return &datatransfers.PaginatedResponse{
+		Items:      tasks,
+		TotalItems: totalItems,
+		TotalPages: totalPages,
+		Page:       params.Page,
+		Limit:      params.Limit,
+	}, nil
 }
 
 func (t *taskDomain) GetTaskById(userID uint, id uint) (*models.Task, error) {
@@ -102,10 +137,10 @@ func (d *taskDomain) UpdateTask(userID uint, id uint, title, description string,
 	}
 
 	// apply updates
-	//task.Title = title
-	//task.Description = description
-	//task.Priority = priority
-	//task.Status = status
+	// task.Title = title
+	// task.Description = description
+	// task.Priority = priority
+	// task.Status = status
 
 	// update fields
 	if title != "" {

@@ -11,7 +11,7 @@ import (
 type TaskRepository interface {
 	FindAll() ([]models.Task, error)
 	FindByID(id uint) (*models.Task, error)
-	FindAllByUserID(userID uint) ([]models.Task, error)
+	FindAllByUserID(userID uint, status string, priority string, limit int, offset int) ([]models.Task, int64, error)
 	Create(task *models.Task) (*models.Task, error)
 	Update(task *models.Task) (*models.Task, error)
 	Delete(id uint) error
@@ -42,13 +42,36 @@ func (r *taskRepository) FindByID(id uint) (*models.Task, error) {
 	return &task, nil
 }
 
-func (r *taskRepository) FindAllByUserID(userID uint) ([]models.Task, error) {
+func (r *taskRepository) FindAllByUserID(userID uint, status string, priority string, limit int, offset int) ([]models.Task, int64, error) {
 	var tasks []models.Task
-	result := r.db.Where("user_id = ?", userID).Find(&tasks)
-	if result.Error != nil {
-		return nil, result.Error
+	var totalItems int64
+
+	// start building the query
+	query := r.db.Where("user_id = ?", userID)
+
+	// apply filters if provided
+
+	if status != "" {
+		query = query.Where("status = ?", status)
 	}
-	return tasks, nil
+
+	if priority != "" {
+		query = query.Where("priority = ?", priority)
+	}
+
+	// count total item before pagination
+	query.Model(&models.Task{}).Count(&totalItems)
+
+	// apply and update the code for pagination
+	result := query.Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&tasks)
+
+	if result.Error != nil {
+		return nil, 0, result.Error
+	}
+	return tasks, totalItems, nil
 }
 
 func (r *taskRepository) Create(task *models.Task) (*models.Task, error) {
@@ -58,6 +81,7 @@ func (r *taskRepository) Create(task *models.Task) (*models.Task, error) {
 	}
 	return task, nil
 }
+
 func (r *taskRepository) Update(task *models.Task) (*models.Task, error) {
 	result := r.db.Save(task)
 	if result.Error != nil {
